@@ -10,24 +10,24 @@ import (
 	"github.com/pkg/errors"
 )
 
-type FileOpsEvent interface {
-	Err(error) FileOpsEvent
-	Str(string, string) FileOpsEvent
+type LogEvent interface {
+	Err(error) LogEvent
+	Str(string, string) LogEvent
 	Msg(string)
 }
 
-type FileOpsLogger interface {
-	Error() FileOpsEvent
+type Logger interface {
+	Error() LogEvent
 }
 
 type File struct {
 	dir    string
 	base   string
 	ext    string
-	logger FileOpsLogger
+	logger Logger
 }
 
-func NewFile(path string, logger FileOpsLogger) (File, error) {
+func NewFile(path string, logger Logger) (File, error) {
 	dir, base, ext, err := DecomposePath(path)
 	if err != nil {
 		return File{}, errors.WithStack(err)
