@@ -8,18 +8,26 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
-	"github.com/ut080/bcs-portal/internal/logging"
 )
+
+type FileOpsEvent interface {
+	Err(error) FileOpsEvent
+	Str(string, string) FileOpsEvent
+	Msg(string)
+}
+
+type FileOpsLogger interface {
+	Error() FileOpsEvent
+}
 
 type File struct {
 	dir    string
 	base   string
 	ext    string
-	logger logging.Logger
+	logger FileOpsLogger
 }
 
-func NewFile(path string, logger logging.Logger) (File, error) {
+func NewFile(path string, logger FileOpsLogger) (File, error) {
 	dir, base, ext, err := DecomposePath(path)
 	if err != nil {
 		return File{}, errors.WithStack(err)
@@ -94,7 +102,6 @@ func (f File) Copy(destDir string) (File, error) {
 	if err != nil {
 		return File{}, errors.WithStack(err)
 	}
-	f.logger.Debug().Str("destDir", destDir).Str("path", destFile.FullPath()).Msg("will copy to path")
 
 	dest, err := destFile.Create()
 	if err != nil {
