@@ -3,6 +3,7 @@ package files
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ type File struct {
 	dir    string
 	base   string
 	ext    string
+	info   fs.FileInfo
 	logger *zerolog.Logger
 }
 
@@ -24,10 +26,16 @@ func NewFile(path string, logger *zerolog.Logger) (File, error) {
 		return File{}, errors.WithStack(err)
 	}
 
+	info, err := os.Stat(path)
+	if err != nil {
+		return File{}, err
+	}
+
 	return File{
 		dir:    dir,
 		base:   base,
 		ext:    ext,
+		info:   info,
 		logger: logger,
 	}, nil
 }
@@ -124,8 +132,59 @@ func (f File) Copy(destDir string) (File, error) {
 	return destFile, nil
 }
 
+func (f File) CopyAndRename(destDir string, newName string) (File, error) {
+	destPath := filepath.Join(destDir, newName)
+	destFile, err := NewFile(destPath, f.logger)
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
+	dest, err := destFile.Create()
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+	defer func(dest *os.File) {
+		err := dest.Close()
+		if err != nil {
+			f.logCloseError(err)
+		}
+	}(dest)
+
+	src, err := f.Open()
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+	defer func(src *os.File) {
+		err := src.Close()
+		if err != nil {
+			f.logCloseError(err)
+		}
+	}(src)
+
+	_, err = io.Copy(dest, src)
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
+	return destFile, nil
+}
+
 func (f File) Move(destDir string) (File, error) {
 	destFile, err := f.Copy(destDir)
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
+	err = f.Remove()
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
+	return destFile, nil
+}
+
+func (f File) MoveAndRename(destDir string, newName string) (File, error) {
+	destFile, err := f.CopyAndRename(destDir, newName)
 	if err != nil {
 		return File{}, errors.WithStack(err)
 	}
