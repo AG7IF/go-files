@@ -3,7 +3,6 @@ package files
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +15,6 @@ type File struct {
 	dir    string
 	base   string
 	ext    string
-	info   fs.FileInfo
 	logger *zerolog.Logger
 }
 
@@ -26,16 +24,10 @@ func NewFile(path string, logger *zerolog.Logger) (File, error) {
 		return File{}, errors.WithStack(err)
 	}
 
-	info, err := os.Stat(path)
-	if err != nil {
-		return File{}, err
-	}
-
 	return File{
 		dir:    dir,
 		base:   base,
 		ext:    ext,
-		info:   info,
 		logger: logger,
 	}, nil
 }
