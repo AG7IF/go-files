@@ -106,6 +106,11 @@ func (d *Directory) CreateFile(name string) (File, error) {
 		return File{}, errors.WithStack(err)
 	}
 
+	_, err = f.Create()
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
 	d.files = append(d.files, f)
 	d.sortFiles()
 
