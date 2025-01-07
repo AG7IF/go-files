@@ -3,6 +3,7 @@ package files
 import (
 	"io/fs"
 	"os"
+	"sort"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -16,7 +17,7 @@ type Directory struct {
 }
 
 func NewDirectory(path string, logger *zerolog.Logger) (Directory, error) {
-	var sudbirectories []Directory
+	var subdirectories []Directory
 	var files []File
 
 	fileSystem := os.DirFS(path)
@@ -32,7 +33,7 @@ func NewDirectory(path string, logger *zerolog.Logger) (Directory, error) {
 				return errors.WithStack(err)
 			}
 
-			sudbirectories = append(sudbirectories, directory)
+			subdirectories = append(subdirectories, directory)
 			return nil
 		}
 
@@ -48,9 +49,17 @@ func NewDirectory(path string, logger *zerolog.Logger) (Directory, error) {
 		return Directory{}, err
 	}
 
+	sort.Slice(subdirectories, func(i, j int) bool {
+		return subdirectories[i].Path() < subdirectories[j].Path()
+	})
+
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Name() < files[j].Name()
+	})
+
 	return Directory{
 		path:           path,
-		subdirectories: sudbirectories,
+		subdirectories: subdirectories,
 		files:          files,
 		logger:         logger,
 	}, nil
@@ -66,4 +75,8 @@ func (d Directory) Filter(ext string) []File {
 	}
 
 	return filtered
+}
+
+func (d Directory) Path() string {
+	return d.path
 }
