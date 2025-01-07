@@ -22,9 +22,9 @@ func NewDirectory(path string, logger *zerolog.Logger) (Directory, error) {
 
 	fileSystem := os.DirFS(path)
 
-	err := fs.WalkDir(fileSystem, ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return errors.WithStack(err)
+	err := fs.WalkDir(fileSystem, ".", func(p string, d fs.DirEntry, e error) error {
+		if d.Name() == "." {
+			return nil
 		}
 
 		if d.IsDir() {
