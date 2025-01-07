@@ -8,27 +8,24 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 )
 
 type File struct {
-	dir    string
-	base   string
-	ext    string
-	logger *zerolog.Logger
+	dir  string
+	base string
+	ext  string
 }
 
-func NewFile(path string, logger *zerolog.Logger) (File, error) {
+func NewFile(path string) (File, error) {
 	dir, base, ext, err := DecomposePath(path)
 	if err != nil {
 		return File{}, errors.WithStack(err)
 	}
 
 	return File{
-		dir:    dir,
-		base:   base,
-		ext:    ext,
-		logger: logger,
+		dir:  dir,
+		base: base,
+		ext:  ext,
 	}, nil
 }
 
@@ -87,78 +84,90 @@ func (f File) Remove() error {
 	return os.Remove(f.FullPath())
 }
 
-func (f File) Copy(destDir string) (File, error) {
+func (f File) Copy(destDir string) (destFile File, err error) {
 	destPath := filepath.Join(destDir, f.Name())
-	destFile, err := NewFile(destPath, f.logger)
+	destFile, err = NewFile(destPath)
 	if err != nil {
-		return File{}, errors.WithStack(err)
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
 	}
 
 	dest, err := destFile.Create()
 	if err != nil {
-		return File{}, errors.WithStack(err)
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
 	}
 	defer func(dest *os.File) {
-		err := dest.Close()
-		if err != nil {
-			f.logCloseError(err)
+		if cerr := dest.Close(); cerr != nil && err == nil {
+			err = errors.WithStack(cerr)
 		}
 	}(dest)
 
 	src, err := f.Open()
 	if err != nil {
-		return File{}, errors.WithStack(err)
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
 	}
 	defer func(src *os.File) {
-		err := src.Close()
-		if err != nil {
-			f.logCloseError(err)
+		if cerr := src.Close(); cerr != nil && err == nil {
+			err = errors.WithStack(cerr)
 		}
 	}(src)
 
 	_, err = io.Copy(dest, src)
 	if err != nil {
-		return File{}, errors.WithStack(err)
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
 	}
 
-	return destFile, nil
+	return
 }
 
-func (f File) CopyAndRename(destDir string, newName string) (File, error) {
+func (f File) CopyAndRename(destDir string, newName string) (destFile File, err error) {
 	destPath := filepath.Join(destDir, newName)
-	destFile, err := NewFile(destPath, f.logger)
+	destFile, err = NewFile(destPath)
 	if err != nil {
-		return File{}, errors.WithStack(err)
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
 	}
 
 	dest, err := destFile.Create()
 	if err != nil {
-		return File{}, errors.WithStack(err)
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
 	}
 	defer func(dest *os.File) {
-		err := dest.Close()
-		if err != nil {
-			f.logCloseError(err)
+		if cerr := dest.Close(); cerr != nil && err == nil {
+			err = errors.WithStack(cerr)
 		}
 	}(dest)
 
 	src, err := f.Open()
 	if err != nil {
-		return File{}, errors.WithStack(err)
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
 	}
 	defer func(src *os.File) {
-		err := src.Close()
-		if err != nil {
-			f.logCloseError(err)
+		if cerr := src.Close(); cerr != nil && err == nil {
+			err = errors.WithStack(cerr)
 		}
 	}(src)
 
 	_, err = io.Copy(dest, src)
 	if err != nil {
-		return File{}, errors.WithStack(err)
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
 	}
 
-	return destFile, nil
+	return
 }
 
 func (f File) Move(destDir string) (File, error) {
@@ -193,56 +202,56 @@ func (f File) ReadFile() ([]byte, error) {
 	return os.ReadFile(f.FullPath())
 }
 
-func (f File) WriteBytes(content []byte) error {
+func (f File) WriteBytes(content []byte) (err error) {
 	out, err := f.Create()
 	if err != nil {
-		return errors.WithStack(err)
+		err = errors.WithStack(err)
+		return
 	}
 	defer func(out *os.File) {
-		err := out.Close()
-		if err != nil {
-			f.logCloseError(err)
+		if cerr := out.Close(); cerr != nil && err == nil {
+			err = errors.WithStack(cerr)
 		}
 	}(out)
 
 	_, err = out.Write(content)
 	if err != nil {
-		return errors.WithStack(err)
+		err = errors.WithStack(err)
+		return
 	}
 
 	err = out.Sync()
 	if err != nil {
-		return errors.WithStack(err)
+		err = errors.WithStack(err)
+		return
 	}
 
-	return nil
+	return
 }
 
-func (f File) WriteString(content string) error {
+func (f File) WriteString(content string) (err error) {
 	out, err := f.Create()
 	if err != nil {
-		return errors.WithStack(err)
+		err = errors.WithStack(err)
+		return
 	}
 	defer func(out *os.File) {
-		err := out.Close()
-		if err != nil {
-			f.logCloseError(err)
+		if cerr := out.Close(); cerr != nil && err == nil {
+			err = errors.WithStack(cerr)
 		}
 	}(out)
 
 	_, err = out.WriteString(content)
 	if err != nil {
-		return errors.WithStack(err)
+		err = errors.WithStack(err)
+		return
 	}
 
 	err = out.Sync()
 	if err != nil {
-		return errors.WithStack(err)
+		err = errors.WithStack(err)
+		return
 	}
 
-	return nil
-}
-
-func (f File) logCloseError(err error) {
-	f.logger.Error().Err(err).Str("path", f.dir).Str("filename", f.Name()).Msg("failed to close file")
+	return
 }

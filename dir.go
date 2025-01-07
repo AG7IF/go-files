@@ -1,34 +1,52 @@
 package files
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"sort"
 
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 )
 
 type Directory struct {
 	path           string
-	subdirectories []Directory
+	subdirectories []*Directory
 	files          []File
-	logger         *zerolog.Logger
 }
 
-func NewDirectory(path string, logger *zerolog.Logger) (Directory, error) {
-	var subdirectories []Directory
+func NewDirectory(path string) *Directory {
+	return &Directory{
+		path: path,
+	}
+}
+
+func (d *Directory) sortSubdirectories() {
+	sort.Slice(d.subdirectories, func(i, j int) bool {
+		return d.subdirectories[i].Path() < d.subdirectories[j].Path()
+	})
+}
+
+func (d *Directory) sortFiles() {
+	sort.Slice(d.files, func(i, j int) bool {
+		return d.files[i].Name() < d.files[j].Name()
+	})
+}
+
+func (d *Directory) Populate() error {
+	var subdirectories []*Directory
 	var files []File
 
-	fileSystem := os.DirFS(path)
+	fileSystem := os.DirFS(d.path)
 
 	err := fs.WalkDir(fileSystem, ".", func(p string, d fs.DirEntry, e error) error {
 		if d.Name() == "." {
-			return nil
+			return errors.WithStack(nil)
 		}
 
 		if d.IsDir() {
-			directory, err := NewDirectory(d.Name(), logger)
+			directory := NewDirectory(d.Name())
+			err := directory.Populate()
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -37,7 +55,7 @@ func NewDirectory(path string, logger *zerolog.Logger) (Directory, error) {
 			return nil
 		}
 
-		file, err := NewFile(d.Name(), logger)
+		file, err := NewFile(d.Name())
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -46,30 +64,35 @@ func NewDirectory(path string, logger *zerolog.Logger) (Directory, error) {
 		return nil
 	})
 	if err != nil {
-		return Directory{}, err
+		return errors.WithStack(err)
 	}
 
-	sort.Slice(subdirectories, func(i, j int) bool {
-		return subdirectories[i].Path() < subdirectories[j].Path()
-	})
+	d.subdirectories = subdirectories
+	d.sortSubdirectories()
 
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].Name() < files[j].Name()
-	})
+	d.files = files
+	d.sortFiles()
 
-	return Directory{
-		path:           path,
-		subdirectories: subdirectories,
-		files:          files,
-		logger:         logger,
-	}, nil
+	return nil
 }
 
-func (d Directory) Filter(ext string) []File {
+func (d *Directory) Path() string {
+	return d.path
+}
+
+func (d *Directory) Subdirectories() []*Directory {
+	return d.subdirectories
+}
+
+func (d *Directory) Files() []File {
+	return d.files
+}
+
+func (d *Directory) FilterByExt(ext string) []File {
 	var filtered []File
 
 	for _, file := range d.files {
-		if file.Ext() == ext {
+		if file.Ext() == fmt.Sprintf(".%s", ext) {
 			filtered = append(filtered, file)
 		}
 	}
@@ -77,6 +100,14 @@ func (d Directory) Filter(ext string) []File {
 	return filtered
 }
 
-func (d Directory) Path() string {
-	return d.path
+func (d *Directory) CreateFile(name string) (File, error) {
+	f, err := NewFile(fmt.Sprintf("%s/%s", d.path, name))
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
+	d.files = append(d.files, f)
+	d.sortFiles()
+
+	return f, nil
 }
