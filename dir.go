@@ -22,7 +22,7 @@ func NewDirectory(path string, logger *zerolog.Logger) (Directory, error) {
 
 	fileSystem := os.DirFS(path)
 
-	err := fs.WalkDir(fileSystem, path, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(fileSystem, path, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return errors.WithStack(err)
 		}
