@@ -72,6 +72,18 @@ func (f File) Stat() (os.FileInfo, error) {
 	return os.Stat(f.FullPath())
 }
 
+func (f File) Exists() (bool, error) {
+	_, err := f.Stat()
+
+	if err != nil {
+		return true, nil
+	} else if os.IsNotExist(err) {
+		return false, nil
+	}
+
+	return false, errors.WithStack(err)
+}
+
 func (f File) Create() (*os.File, error) {
 	return os.Create(f.FullPath())
 }
@@ -91,6 +103,64 @@ func (f File) Copy(destDir string) (destFile File, err error) {
 		destFile = File{}
 		err = errors.WithStack(err)
 		return
+	}
+
+	dest, err := destFile.Create()
+	if err != nil {
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
+	}
+	defer func(dest *os.File) {
+		if cerr := dest.Close(); cerr != nil && err == nil {
+			err = errors.WithStack(cerr)
+		}
+	}(dest)
+
+	src, err := f.Open()
+	if err != nil {
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
+	}
+	defer func(src *os.File) {
+		if cerr := src.Close(); cerr != nil && err == nil {
+			err = errors.WithStack(cerr)
+		}
+	}(src)
+
+	_, err = io.Copy(dest, src)
+	if err != nil {
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
+	}
+
+	return
+}
+
+func (f File) ForceCopy(destDir string) (destFile File, err error) {
+	destPath := filepath.Join(destDir, f.Name())
+	destFile, err = NewFile(destPath)
+	if err != nil {
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
+	}
+
+	exists, err := destFile.Exists()
+	if err != nil {
+		destFile = File{}
+		err = errors.WithStack(err)
+		return
+	}
+
+	if exists {
+		err = destFile.Remove()
+		if err != nil {
+			destFile = File{}
+			err = errors.WithStack(err)
+		}
 	}
 
 	dest, err := destFile.Create()
