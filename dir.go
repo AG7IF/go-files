@@ -116,3 +116,39 @@ func (d *Directory) CreateFile(name string) (File, error) {
 
 	return f, nil
 }
+
+func (d *Directory) CopyFileToDir(file File) (File, error) {
+	f, err := file.Copy(d.path)
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
+	return f, nil
+}
+
+func (d *Directory) ForceCopyFileToDir(file File) (File, error) {
+	f, err := file.ForceCopy(d.path)
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
+	return f, nil
+}
+
+func (d *Directory) MoveFileToDir(file File) (File, error) {
+	f, err := file.Move(d.path)
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
+	return f, nil
+}
+
+func (d *Directory) MoveAndRenameToDir(file File, newName string) (File, error) {
+	f, err := file.MoveAndRename(d.path, newName)
+	if err != nil {
+		return File{}, errors.WithStack(err)
+	}
+
+	return f, nil
+}
