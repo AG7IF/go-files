@@ -48,7 +48,7 @@ func (f File) Empty() bool {
 	return f.dir == "" && f.base == "" && f.ext == ""
 }
 
-func (f File) Dir() string {
+func (f File) DirPath() string {
 	return f.dir
 }
 
@@ -62,6 +62,10 @@ func (f File) Ext() string {
 
 func (f File) Name() string {
 	return fmt.Sprintf("%s%s", f.base, f.ext)
+}
+
+func (f File) Dir() *Directory {
+	return NewDirectory(f.dir)
 }
 
 func (f File) FullPath() string {
